@@ -1,30 +1,36 @@
-"""
-SQLAlchemy ORM models.
-"""
 from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, Float, JSON
+db = SQLAlchemy()
 
-from app.database import Base
+class Email(db.Model):
+    __tablename__ = 'emails'
 
+    id = db.Column(db.Integer, primary_key=True)
+    sender = db.Column(db.String(255), nullable=False)
+    subject = db.Column(db.String(500))
+    body = db.Column(db.Text, nullable=False)
 
-class Email(Base):
-    __tablename__ = "emails"
+    category = db.Column(db.String(50))
+    priority_score = db.Column(db.Integer)
+    summary = db.Column(db.Text)
+    action_items = db.Column(db.Text)
+    deadline = db.Column(db.DateTime, nullable=True)
+    keywords = db.Column(db.String(500))
 
-    id = Column(Integer, primary_key=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Raw email fields
-    sender = Column(String(255), index=True, nullable=False)
-    subject = Column(String(500), nullable=False)
-    body = Column(Text, nullable=False)
-    received_at = Column(DateTime, default=datetime.utcnow)
-
-    # AI-derived intelligence
-    category = Column(String(50), index=True)          # e.g. Urgent, Action Needed, Meeting, Informational, Spam-like
-    priority_score = Column(Float, default=0.0)         # 0-100
-    summary = Column(Text)                              # extractive summary
-    action_items = Column(JSON, default=list)           # list of strings
-    deadlines = Column(JSON, default=list)               # list of {"text": ..., "date": ...}
-    keywords = Column(JSON, default=list)               # top keywords detected
-
-    processed_at = Column(DateTime, default=datetime.utcnow)
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'sender': self.sender,
+            'subject': self.subject,
+            'body': self.body,
+            'category': self.category,
+            'priority_score': self.priority_score,
+            'summary': self.summary,
+            'action_items': self.action_items,
+            'deadline': self.deadline.isoformat() if self.deadline else None,
+            'keywords': self.keywords,
+            'created_at': self.created_at.isoformat()
+        }

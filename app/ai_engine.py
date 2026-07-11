@@ -1,282 +1,209 @@
-"""
-The AI intelligence engine.
-
-This module is what makes the platform "understand" emails instead of just
-storing them. It's built as a layered, hybrid system:
-
-  1. Rule/keyword-based signals (fast, free, deterministic) — always run.
-  2. Lightweight statistical summarization (TF-IDF sentence ranking) — always run.
-  3. Optional LLM enhancement (Anthropic/OpenAI) — used only if an API key is
-     configured, to sharpen categorization/summarization further.
-
-This design means the whole platform works out of the box with zero API keys
-and zero cost, and gets smarter automatically if you plug in an LLM key.
-"""
-import os
 import re
+from dateutil import parser as date_parser
 from datetime import datetime
-from typing import List, Dict, Tuple
 
-from dateutil import parser as dateparser
-from sklearn.feature_extraction.text import TfidfVectorizer
-import numpy as np
+URGENT_KEYWORDS = ['urgent', 'asap', 'immediately', 'critical', 'emergency']
+MEETING_KEYWORDS = ['meeting', 'call', 'schedule', 'calendar', 'invite', 'zoom', 'teams']
+ACTION_KEYWORDS = ['please', 'need you to', 'action required', 'complete', 'submit', 'review']
+SPAM_KEYWORDS = ['unsubscribe', 'winner', 'free money', 'click here', 'limited offer']
 
-# ---------------------------------------------------------------------------
-# Category keyword signals
-# ---------------------------------------------------------------------------
-CATEGORY_KEYWORDS = {
-    "Urgent": [
-        "urgent", "asap", "immediately", "right away", "critical",
-        "emergency", "time-sensitive", "deadline today", "eod",
-    ],
-    "Action Needed": [
-        "please send", "please review", "can you", "need you to",
-        "action required", "waiting on", "follow up", "reply by",
-        "approve", "sign off", "complete the", "submit",
-    ],
-    "Meeting": [
-        "meeting", "call", "schedule", "calendar", "invite",
-        "zoom", "teams link", "reschedule", "availability",
-    ],
-    "Informational": [
-        "fyi", "newsletter", "update", "announcement", "summary",
-        "no action needed", "heads up",
-    ],
-    "Spam-like": [
-        "unsubscribe", "limited time offer", "click here", "winner",
-        "free gift", "act now", "congratulations you", "% off",
-    ],
-}
-
-# Weight per category when computing priority score
-CATEGORY_WEIGHT = {
-    "Urgent": 40,
-    "Action Needed": 25,
-    "Meeting": 15,
-    "Informational": 5,
-    "Spam-like": -20,
-}
-
-DEADLINE_PATTERN = re.compile(
-    r"(by|before|due|no later than)\s+([A-Za-z0-9 ,]+?(?:\d{1,2}(st|nd|rd|th)?)?"
-    r"(?:\s+\d{4})?)",
-    re.IGNORECASE,
-)
-
-ACTION_VERBS = [
-    "send", "review", "approve", "complete", "submit", "reply",
-    "confirm", "update", "schedule", "prepare", "share", "sign",
-    "finish", "provide", "attach", "call", "follow up",
+ACTION_PHRASES = [
+    'please', 'need you to', 'make sure', 'ensure', 'submit', 'send',
+    'complete', 'review', 'provide', 'kindly', 'must', 'should',
+    'action required', 'required to'
 ]
 
 
-def _score_categories(text: str) -> Dict[str, int]:
-    """Count keyword hits per category in the given text (case-insensitive)."""
-    lowered = text.lower()
-    scores = {}
-    for category, keywords in CATEGORY_KEYWORDS.items():
-        hits = sum(1 for kw in keywords if kw in lowered)
-        if hits:
-            scores[category] = hits
-    return scores
+def categorize_email(subject, body):
+    text = (subject or '') + ' ' + (body or '')
+    text = text.lower()
+
+    if any(keyword in text for keyword in URGENT_KEYWORDS):
+        return 'Urgent'
+    elif any(keyword in text for keyword in MEETING_KEYWORDS):
+        return 'Meeting'
+    elif any(keyword in text for keyword in ACTION_KEYWORDS):
+        return 'Action Needed'
+    elif any(keyword in text for keyword in SPAM_KEYWORDS):
+        return 'Spam-like'
+    else:
+        return 'Informational'
 
 
-def classify_email(subject: str, body: str) -> str:
-    """
-    Pick the single best category for an email based on keyword signal
-    strength in the subject (weighted higher) and body.
-    """
-    subject_scores = _score_categories(subject)
-    body_scores = _score_categories(body)
-
-    combined: Dict[str, float] = {}
-    for cat, hits in subject_scores.items():
-        combined[cat] = combined.get(cat, 0) + hits * 2  # subject counts double
-    for cat, hits in body_scores.items():
-        combined[cat] = combined.get(cat, 0) + hits
-
-    if not combined:
-        return "Informational"
-
-    return max(combined.items(), key=lambda kv: kv[1])[0]
-
-
-def extract_action_items(body: str) -> List[str]:
-    """
-    Pull out sentences that look like actionable requests — i.e. contain an
-    action verb near the start, or an imperative/"please ..." construction.
-    """
-    sentences = re.split(r"(?<=[.!?])\s+", body.strip())
-    action_items = []
-
-    for sentence in sentences:
-        lowered = sentence.lower().strip()
-        if not lowered:
-            continue
-        starts_with_please = lowered.startswith("please")
-        has_action_verb = any(
-            re.search(rf"\b{verb}\b", lowered) for verb in ACTION_VERBS
-        )
-        has_request_phrase = any(
-            phrase in lowered
-            for phrase in ["can you", "could you", "need you to", "make sure to"]
-        )
-        if starts_with_please or has_request_phrase or (
-            has_action_verb and len(sentence.split()) < 40
-        ):
-            action_items.append(sentence.strip())
-
-    # De-duplicate while preserving order
-    seen = set()
-    unique_items = []
-    for item in action_items:
-        if item not in seen:
-            seen.add(item)
-            unique_items.append(item)
-
-    return unique_items[:8]  # cap to keep it readable
-
-
-def extract_deadlines(body: str) -> List[Dict]:
-    """
-    Find phrases like "by Friday", "before March 5th", "no later than 5pm"
-    and attempt to resolve them to actual dates where possible.
-    """
-    deadlines = []
-    for match in DEADLINE_PATTERN.finditer(body):
-        raw_text = match.group(0).strip()
-        date_fragment = match.group(2).strip()
-        resolved_date = None
-        try:
-            resolved_date = dateparser.parse(
-                date_fragment, fuzzy=True, default=datetime.utcnow()
-            ).date().isoformat()
-        except (ValueError, OverflowError):
-            resolved_date = None
-
-        deadlines.append({"text": raw_text, "date": resolved_date})
-
-    return deadlines
-
-
-def summarize(body: str, max_sentences: int = 3) -> str:
-    """
-    Lightweight extractive summarization using TF-IDF sentence scoring.
-    No external model or API needed — works fully offline.
-    """
-    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", body.strip()) if s.strip()]
-
-    if len(sentences) <= max_sentences:
-        return body.strip()
-
-    try:
-        vectorizer = TfidfVectorizer(stop_words="english")
-        tfidf_matrix = vectorizer.fit_transform(sentences)
-        # Score each sentence by the sum of its TF-IDF weights
-        sentence_scores = np.asarray(tfidf_matrix.sum(axis=1)).ravel()
-        top_indices = sentence_scores.argsort()[::-1][:max_sentences]
-        top_indices_sorted = sorted(top_indices)  # keep original order
-        summary = " ".join(sentences[i] for i in top_indices_sorted)
-        return summary
-    except ValueError:
-        # e.g. body is all stopwords / too short for TF-IDF
-        return " ".join(sentences[:max_sentences])
-
-
-def extract_keywords(body: str, top_n: int = 5) -> List[str]:
-    """Extract the top-N most distinctive keywords from the email body."""
-    try:
-        vectorizer = TfidfVectorizer(stop_words="english", max_features=50)
-        tfidf_matrix = vectorizer.fit_transform([body])
-        scores = tfidf_matrix.toarray()[0]
-        feature_names = np.array(vectorizer.get_feature_names_out())
-        top_indices = scores.argsort()[::-1][:top_n]
-        return [feature_names[i] for i in top_indices if scores[i] > 0]
-    except ValueError:
-        return []
-
-
-def compute_priority_score(category: str, body: str, deadlines: List[Dict]) -> float:
-    """
-    Combine category weight + urgency keyword density + presence of deadlines
-    into a single 0-100 priority score.
-    """
-    base = 50 + CATEGORY_WEIGHT.get(category, 0)
-
-    # Boost if there's a resolvable deadline
-    if deadlines:
-        base += 10 if any(d["date"] for d in deadlines) else 5
-
-    # Boost slightly per urgent keyword found directly
-    lowered = body.lower()
-    urgent_hits = sum(1 for kw in CATEGORY_KEYWORDS["Urgent"] if kw in lowered)
-    base += urgent_hits * 3
-
-    return float(max(0, min(100, base)))
-
-
-def maybe_enhance_with_llm(subject: str, body: str, result: Dict) -> Dict:
-    """
-    Optional enhancement step: if ANTHROPIC_API_KEY or OPENAI_API_KEY is set
-    in the environment, ask an LLM to double-check/refine the category and
-    produce a sharper summary. Silently no-ops if no key is configured, so
-    the platform works fully offline by default.
-    """
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    if not anthropic_key:
-        return result  # no key configured — skip enhancement
-
-    try:
-        import anthropic  # imported lazily so it's an optional dependency
-
-        client = anthropic.Anthropic(api_key=anthropic_key)
-        prompt = (
-            "You are an email intelligence assistant. Given this email, "
-            "return a JSON object with keys 'category' (one of: Urgent, "
-            "Action Needed, Meeting, Informational, Spam-like) and "
-            "'summary' (a 1-2 sentence summary).\n\n"
-            f"Subject: {subject}\nBody: {body}"
-        )
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=300,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        # Parsing left intentionally simple — production code should validate
-        # this more defensively (e.g. json.loads with try/except + schema check).
-        text = response.content[0].text
-        import json
-        parsed = json.loads(text)
-        result["category"] = parsed.get("category", result["category"])
-        result["summary"] = parsed.get("summary", result["summary"])
-    except Exception:
-        # Any failure (no network, bad key, parsing issue) — fall back
-        # silently to the rule-based result rather than breaking the request.
-        pass
-
-    return result
-
-
-def process_email(sender: str, subject: str, body: str) -> Dict:
-    """
-    The main entry point: run the full intelligence pipeline on a raw email
-    and return everything the API/database needs.
-    """
-    category = classify_email(subject, body)
-    action_items = extract_action_items(body)
-    deadlines = extract_deadlines(body)
-    summary = summarize(body)
-    keywords = extract_keywords(body)
-    priority_score = compute_priority_score(category, body, deadlines)
-
-    result = {
-        "category": category,
-        "action_items": action_items,
-        "deadlines": deadlines,
-        "summary": summary,
-        "keywords": keywords,
-        "priority_score": priority_score,
+def calculate_priority(category, text, has_deadline):
+    base_scores = {
+        'Urgent': 80,
+        'Action Needed': 60,
+        'Meeting': 50,
+        'Informational': 20,
+        'Spam-like': 5
     }
 
-    result = maybe_enhance_with_llm(subject, body, result)
-    return result
+    score = base_scores.get(category, 20)
+
+    text_lower = text.lower()
+    if any(keyword in text_lower for keyword in URGENT_KEYWORDS):
+        score += 10
+
+    if has_deadline:
+        score += 10
+
+    return min(score, 100)
+
+
+def extract_action_items(body):
+    if not body:
+        return []
+
+    sentences = re.split(r'(?<=[.!?])\s+', body)
+
+    action_items = []
+    for sentence in sentences:
+        sentence_lower = sentence.lower()
+        if any(phrase in sentence_lower for phrase in ACTION_PHRASES):
+            action_items.append(sentence.strip())
+
+    return action_items
+
+
+def extract_deadline(text):
+    if not text:
+        return None
+    pattern = r"\b(?:by|before|due|deadline is|deadline:)\s+([A-Za-z0-9,'\s]+?)(?:[.,!\n]|$)"
+    
+    matches = re.findall(pattern, text, re.IGNORECASE)
+
+    for match in matches:
+        candidate = match.strip()
+        try:
+            parsed_date = date_parser.parse(candidate, fuzzy=True, default=datetime.now())
+            return parsed_date
+        except (ValueError, OverflowError):
+            continue
+
+    return None
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+
+def split_sentences(text):
+    if not text:
+        return []
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    return [s.strip() for s in sentences if s.strip()]
+
+
+def summarize_email(body, num_sentences=3):
+    """
+    Picks the num_sentences most 'important' sentences (by TF-IDF score)
+    and returns them in their original order.
+    """
+    sentences = split_sentences(body)
+
+    if len(sentences) <= num_sentences:
+        return body
+
+    vectorizer = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = vectorizer.fit_transform(sentences)
+
+    sentence_scores = tfidf_matrix.sum(axis=1).A1
+
+    top_indices = sentence_scores.argsort()[-num_sentences:]
+    top_indices_sorted = sorted(top_indices)
+
+    summary = ' '.join([sentences[i] for i in top_indices_sorted])
+    return summary
+
+
+def extract_keywords(body, num_keywords=5):
+    """
+    Returns the most distinctive words in the email, by TF-IDF score,
+    treating each sentence as its own mini-document.
+    """
+    sentences = split_sentences(body)
+
+    if len(sentences) < 2:
+        return []
+
+    vectorizer = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = vectorizer.fit_transform(sentences)
+
+    feature_names = vectorizer.get_feature_names_out()
+    scores = tfidf_matrix.sum(axis=0).A1
+
+    top_indices = scores.argsort()[-num_keywords:][::-1]
+    keywords = [feature_names[i] for i in top_indices]
+
+    return keywords
+
+import os
+from dotenv import load_dotenv
+from anthropic import Anthropic
+
+load_dotenv()
+
+api_key = os.getenv('ANTHROPIC_API_KEY')
+client = Anthropic(api_key=api_key) if api_key else None
+
+
+def is_llm_enabled():
+    return client is not None
+
+
+def enhance_categorization(subject, body, rule_based_category):
+    """
+    If an Anthropic API key is configured, asks Claude to refine the
+    rule-based category. Falls back to the rule-based result if the
+    LLM isn't configured, returns something unexpected, or the call
+    fails for any reason.
+    """
+    if not is_llm_enabled():
+        return rule_based_category
+
+    try:
+        message = client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=20,
+            messages=[{
+                "role": "user",
+                "content": (
+                    "Classify this email into exactly one category: "
+                    "Urgent, Action Needed, Meeting, Informational, or Spam-like. "
+                    "Reply with only the category name, nothing else.\n\n"
+                    f"Subject: {subject}\nBody: {body}"
+                )
+            }]
+        )
+        llm_category = message.content[0].text.strip()
+
+        valid_categories = ['Urgent', 'Action Needed', 'Meeting', 'Informational', 'Spam-like']
+        if llm_category in valid_categories:
+            return llm_category
+        return rule_based_category
+
+    except Exception as e:
+        print(f"LLM categorization failed, falling back to rule-based: {e}")
+        return rule_based_category
+
+
+def enhance_summary(body, rule_based_summary):
+    """
+    Same fallback philosophy as above, but for summarization.
+    """
+    if not is_llm_enabled():
+        return rule_based_summary
+
+    try:
+        message = client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=150,
+            messages=[{
+                "role": "user",
+                "content": f"Summarize this email in 1-2 concise sentences:\n\n{body}"
+            }]
+        )
+        return message.content[0].text.strip()
+
+    except Exception as e:
+        print(f"LLM summarization failed, falling back to TF-IDF summary: {type(e).__name__}: {e}")
+        return rule_based_summary
