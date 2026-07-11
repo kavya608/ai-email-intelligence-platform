@@ -1,0 +1,32 @@
+[
+  {
+    "sender": "manager@company.com",
+    "subject": "Urgent: Q3 report needed by Friday",
+    "body": "Hi, I need the Q3 report by Friday EOD, this is urgent. Please review the attached numbers and confirm they match your records. Can you also send me the summary slide by tomorrow morning? Let me know if you have any questions."
+  },
+  {
+    "sender": "hr@company.com",
+    "subject": "Team meeting rescheduled",
+    "body": "Hi all, our weekly sync has been moved to Thursday at 3pm. Please update your calendars. The Zoom link remains the same. See you there."
+  },
+  {
+    "sender": "newsletter@techdigest.com",
+    "subject": "This week in tech: 5 trends to watch",
+    "body": "FYI, here's this week's roundup of tech news. No action needed, just a quick read for your commute. Highlights include new AI models, chip shortages easing, and a major cloud outage recap."
+  },
+  {
+    "sender": "promo@dealsdaily.com",
+    "subject": "Congratulations! You've won a free gift - click here",
+    "body": "Congratulations you are our lucky winner! Click here to claim your free gift before this limited time offer expires. Act now, unsubscribe anytime."
+  },
+  {
+    "sender": "client@partnerco.com",
+    "subject": "Action required: contract signature needed",
+    "body": "Hi, could you please review the attached contract and sign off by end of day Monday? We need this finalized before we can proceed with the next phase. Please let me know if you have any questions or need changes."
+  },
+  {
+    "sender": "colleague@company.com",
+    "subject": "Quick question about the dashboard",
+    "body": "Hey, quick one - can you confirm which data source the revenue dashboard is pulling from? Trying to reconcile a discrepancy before our meeting tomorrow."
+  }
+]

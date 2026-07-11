@@ -1,0 +1,10 @@
+Flask==3.0.3
+SQLAlchemy==2.0.30
+pydantic==2.7.1
+python-dateutil==2.9.0.post0
+scikit-learn==1.5.0
+numpy==1.26.4
+
+# Optional — only needed if you set ANTHROPIC_API_KEY to enable LLM-enhanced
+# categorization/summarization. The platform works fully without it.
+anthropic==0.28.0
