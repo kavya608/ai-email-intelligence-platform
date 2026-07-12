@@ -17,6 +17,7 @@ class Email(db.Model):
     action_items = db.Column(db.Text)
     deadline = db.Column(db.DateTime, nullable=True)
     keywords = db.Column(db.String(500))
+    entities = db.Column(db.JSON)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -32,5 +33,6 @@ class Email(db.Model):
             'action_items': self.action_items,
             'deadline': self.deadline.isoformat() if self.deadline else None,
             'keywords': self.keywords,
+            'entities': self.entities,
             'created_at': self.created_at.isoformat()
         }

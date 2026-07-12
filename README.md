@@ -1,74 +1,311 @@
 # AI Email Intelligence Platform
 
-An email processing API that automatically categorizes, prioritizes, summarizes, and extracts actionable information from emails. It combines rule-based logic and statistical NLP (TF-IDF) for fast, deterministic processing, with an optional LLM enhancement layer (Claude/Anthropic) that can refine results when configured.
+An AI-powered Email Intelligence Platform that automatically analyzes, prioritizes, and organizes emails using Natural Language Processing (NLP).
 
-## Overview
+The platform transforms unstructured email content into actionable insights by classifying email intent, calculating priority, generating concise summaries, extracting named entities, identifying action items, tracking deadlines, and generating context-aware reply drafts.
 
-Rather than simply storing emails, this platform analyzes each one and surfaces what matters: urgency, required actions, deadlines, and a concise summary. The core pipeline runs entirely offline with no external dependencies or cost. An optional integration with the Anthropic API allows Claude to refine categorization and summarization when an API key is configured, with automatic fallback to the rule-based result if the key is missing, invalid, or the request fails for any reason.
+## Project Overview
 
-## Features
+Manually triaging a large volume of email is time-consuming. This platform processes incoming email content automatically so the important information — who's involved, what's being asked, what's due and when, and how urgent it is — is surfaced immediately rather than requiring a full read-through.
 
-- **Categorization** — classifies each email as Urgent, Action Needed, Meeting, Informational, or Spam-like
-- **Priority scoring** — assigns a 0-100 score based on category, urgency language, and detected deadlines
-- **Action item extraction** — identifies sentences that request a specific action
-- **Deadline detection** — parses phrases such as "by Friday" or "before Friday's meeting" and resolves them to concrete dates
-- **Extractive summarization** — condenses longer emails to their most informative sentences using TF-IDF
-- **Keyword extraction** — surfaces the most distinctive terms in an email
-- **Optional LLM enhancement** — refines categorization and summaries via the Anthropic API when configured
-- **Dashboard statistics** — aggregate view of email volume by category, average priority, and upcoming deadlines
+The system provides:
+- Rule-based email classification
+- Priority scoring
+- NLP-based named entity extraction (spaCy)
+- Extractive email summarization (TF-IDF)
+- Action item detection
+- Deadline extraction
+- Template-based reply drafting
+- An analytics dashboard
 
-## Architecture
+## Key Features
+
+- Intelligent email classification into five categories
+- Priority scoring based on urgency and deadlines
+- Automatic email summarization using TF-IDF
+- Named entity extraction (People, Organizations, Locations, Dates, Money)
+- Action item detection
+- Deadline extraction and tracking
+- Smart reply drafting with configurable tone
+- Analytics dashboard with email insights
+- Email filtering, search, and pagination
+
+## Email Processing Pipeline
 
 ```
-Email input
-    |
-    v
-Categorize  ->  Extract deadline  ->  Calculate priority score
-    |
-    v
-Extract action items  ->  Summarize  ->  Extract keywords
-    |
-    v
-(Optional) Refine category and summary via Claude
-    |
-    v
-Persist to database  ->  Return processed result as JSON
+Incoming Email
+      |
+      v
+Request Validation (Pydantic)
+      |
+      v
+Processing Engine
+      |
+      ├── Email Classification
+      ├── Priority Calculation
+      ├── Named Entity Extraction (spaCy)
+      ├── Extractive Summarization (TF-IDF)
+      ├── Action Item Detection
+      ├── Deadline Extraction
+      |
+      v
+Database Storage (SQLite via Flask-SQLAlchemy)
 ```
 
-Every email passes through the same deterministic pipeline defined in `ai_engine.py`, making results fast, explainable, and reproducible.
+## AI & NLP Capabilities
 
-## Tech Stack
+### 1. Email Classification
 
-- **Flask** — REST API framework
-- **Flask-SQLAlchemy** with **SQLite** — ORM and persistence (the connection string can be swapped for PostgreSQL or MySQL in production)
-- **Pydantic** — request and response validation and serialization
-- **scikit-learn** — TF-IDF vectorization for summarization and keyword extraction
-- **python-dateutil** — natural-language date parsing
-- **Anthropic API** (optional) — LLM-based refinement of categorization and summaries
+Categorizes each email into one of five categories, checked in this order: `Spam-like`, `Urgent`, `Meeting`, `Action Needed`, `Informational`.
+
+**Example**
+
+Input:
+```
+Production server is down. Please fix immediately.
+```
+Output:
+```json
+{ "category": "Urgent" }
+```
+
+### 2. Priority Scoring
+
+Each email receives a 0–100 priority score based on its category, presence of urgency keywords, and whether a deadline was detected.
+
+| Category | Typical Priority |
+|---|---|
+| Urgent | High |
+| Action Needed | Medium-High |
+| Meeting | Medium |
+| Informational | Low |
+| Spam-like | Lowest |
+
+### 3. Extractive Summarization
+
+Generates concise summaries from longer emails using TF-IDF-based extractive summarization — selecting the most information-dense sentences rather than generating new text.
+
+**Example**
+
+Original:
+```
+John from Microsoft requested Rs.45000 before 18 July. Please contact Alice in Bangalore regarding payment.
+```
+Summary:
+```
+John from Microsoft requested Rs.45000 before 18 July.
+```
+
+### 4. Named Entity Extraction
+
+Uses spaCy (`en_core_web_sm`) to extract structured entities from each email, plus a regex pass tuned for Indian currency formats layered on top of spaCy's own money detection.
+
+| Entity type | Example |
+|---|---|
+| People | John, Alice |
+| Organizations | Microsoft, Infosys |
+| Locations | Bangalore, Hyderabad |
+| Dates | 18 July |
+| Money | Rs.45000, ₹45,000 |
+
+### 5. Action Item Detection
+
+Identifies sentences that request a specific action, using a keyword/phrase-matching approach.
+
+**Example**
+
+Input:
+```
+Please complete the API documentation before Friday.
+```
+Extracted:
+```
+Complete the API documentation before Friday.
+```
+
+### 6. Deadline Extraction
+
+Detects deadline phrases (e.g. "by", "before", "due") and resolves them to actual dates using regex + fuzzy date parsing.
+
+**Example**
+
+Input:
+```
+Please submit the invoice before 20 July.
+```
+Detected:
+```
+Deadline: 2026-07-20
+```
+Upcoming deadlines are surfaced on the analytics dashboard.
+
+## Smart Reply Assistant
+
+Generates a draft reply based on the email's subject, body, detected category, deadline, and action items.
+
+Supported tones: `professional` (default), `friendly`, `formal`.
+
+**Example**
+
+Input:
+```
+Please submit the report before Friday.
+```
+Generated reply:
+```
+Hi,
+
+Thank you for your email regarding "...".
+
+I have noted the requested action.
+
+I will take care of the following:
+Please submit the report before Friday.
+
+I will ensure this is completed before 17 July 2026.
+
+Regards,
+AI Email Intelligence Platform
+```
+
+## Analytics Dashboard
+
+`GET /dashboard/stats` returns:
+
+```json
+{
+  "total_emails": 20,
+  "category_breakdown": { "Urgent": 4, "Meeting": 3, "Action Needed": 5 },
+  "average_priority": 62.5,
+  "upcoming_deadlines": [
+    { "id": 12, "subject": "Payment Reminder", "deadline": "2026-07-18T00:00:00" }
+  ],
+  "top_people": [["John", 5], ["Alice", 3]],
+  "top_organizations": [["Microsoft", 4], ["Infosys", 2]],
+  "top_locations": [["Bangalore", 3]],
+  "urgent_emails": 2,
+  "action_needed_emails": 5,
+  "spam_percentage": 10.0,
+  "top_senders": [["john@microsoft.com",4]]
+}
+```
+
+## REST API Endpoints
+
+The email retrieval endpoint supports:
+
+- Pagination (`page`, `limit`)
+- Category filtering
+- Sender search
+- Minimum priority filtering
+
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/emails/ingest` | Process and store a single email |
+| POST | `/emails/batch-ingest` | Process and store multiple emails; per-item validation, one bad item doesn't block the rest |
+| GET | `/emails` | Retrieve emails with pagination and filtering |
+| GET | `/emails/<id>` | Retrieve a processed email by ID |
+| DELETE | `/emails/<id>` | Delete a processed email |
+| POST | `/emails/reply` | Generate a draft reply for a given subject/body/tone (not persisted) |
+| GET | `/dashboard/stats` | Aggregate statistics across all processed emails |
+
+### Example: ingest a single email
+
+```bash
+curl -X POST http://127.0.0.1:5000/emails/ingest \
+  -H "Content-Type: application/json" \
+  -d "{\"sender\": \"john@microsoft.com\", \"subject\": \"Payment Reminder\", \"body\": \"Please process payment of Rs.45000 before 18 July.\"}"
+```
+
+### Example: generate a reply
+
+```bash
+curl -X POST http://127.0.0.1:5000/emails/reply \
+  -H "Content-Type: application/json" \
+  -d "{\"subject\": \"Payment Reminder\", \"body\": \"Please process payment before 18 July.\", \"tone\": \"formal\"}"
+
+```
+## REST API Endpoints
+
+### Email Management
+
+| Method | Endpoint | Description |
+|---------|----------|-------------|
+| POST | `/emails/ingest` | Process and store a single email |
+| POST | `/emails/batch-ingest` | Process multiple emails |
+| GET | `/emails` | Retrieve processed emails with search, filtering and pagination support |
+| GET | `/emails/<id>` | Retrieve a processed email by ID |
+| DELETE | `/emails/<id>` | Delete a processed email |
+
+### Smart Reply
+
+| Method | Endpoint | Description |
+|---------|----------|-------------|
+| POST | `/emails/reply` | Generate a context-aware reply draft |
+
+### Analytics
+
+| Method | Endpoint | Description |
+|---------|----------|-------------|
+| GET | `/dashboard/stats` | Retrieve email analytics and dashboard statistics |
+
+### Search, Filtering & Pagination
+
+The `GET /emails` endpoint supports flexible retrieval of processed emails using query parameters.
+
+| Feature | Example |
+|---------|---------|
+| Pagination | `/emails?page=1&limit=10` |
+| Category Filter | `/emails?category=Urgent` |
+| Sender Search | `/emails?sender=microsoft` |
+| Minimum Priority | `/emails?min_priority=70` |
+
+These query parameters can also be combined.
+
+Example:
+
+GET /emails?category=Action%20Needed&min_priority=70&page=1&limit=10
+
+## Technology Stack
+
+**Backend**
+- Python
+- Flask
+- Flask-SQLAlchemy
+
+**Database**
+- SQLite
+
+**NLP & AI**
+- spaCy (`en_core_web_sm`) — named entity recognition
+- scikit-learn — TF-IDF vectorization for summarization and keyword extraction
+- python-dateutil — fuzzy date parsing
+- Rule-based classification and priority engine
+
+**Data Validation**
+- Pydantic
 
 ## Project Structure
 
 ```
 email_ai_platform/
 ├── app/
-│   ├── __init__.py       # Marks app/ as a Python package
-│   ├── main.py            # Flask app and API routes
-│   ├── ai_engine.py       # Categorization, extraction, summarization, and optional LLM layer
-│   ├── models.py          # Flask-SQLAlchemy database models
-│   ├── schemas.py         # Pydantic request/response schemas
-│   └── database.py        # Database configuration and initialization
+│   ├── __init__.py
+│   ├── main.py              # Flask app and API routes
+│   ├── ai_engine.py          # Categorization, priority, extraction, summarization, NER
+│   ├── reply_generator.py    # Template-based reply drafting
+│   ├── models.py             # Flask-SQLAlchemy database models
+│   ├── schemas.py             # Pydantic request/response schemas
+│   └── database.py           # Database configuration and initialization
+├── sample_data/
+│   └── sample_emails.json
 ├── requirements.txt
-├── .env                    # Local only; holds ANTHROPIC_API_KEY, never committed
 ├── .gitignore
 └── README.md
 ```
 
-## Getting Started
-
-### Prerequisites
-- Python 3.10+
-
-### Installation
+## Installation & Setup
 
 Clone the repository:
 ```bash
@@ -90,125 +327,43 @@ source venv/bin/activate
 Install dependencies:
 ```bash
 pip install -r requirements.txt
+python -m spacy download en_core_web_sm
 ```
 
-### Optional: enable LLM-enhanced mode
+The spaCy language model is a separate download from the `spacy` package and is required before named entity recognition will work.
 
-Create a `.env` file in the project root:
-```
-ANTHROPIC_API_KEY=your_key_here
-```
-An API key can be generated at [console.anthropic.com](https://console.anthropic.com) under API Keys. This step is optional — the application runs fully without it and uses rule-based results only.
-
-### Running the server
+## Running the Application
 
 ```bash
 python -m app.main
 ```
 
-The API is available at `http://127.0.0.1:5000`.
+The API runs at `http://127.0.0.1:5000`.
 
-## API Reference
+## Future Improvements
 
-### `POST /emails/ingest`
-Processes and stores a single email.
+Possible enhancements:
+- React dashboard interface
+- Gmail and Outlook integration
+- PostgreSQL migration
+- User authentication
+- Advanced machine learning classifier
+- Email attachment processing
+- Production deployment
+- Advanced AI assistant integration
 
-Request body:
-```json
-{
-  "sender": "manager@company.com",
-  "subject": "Urgent: Q3 report needed",
-  "body": "Please send me the Q3 report by Friday EOD, this is urgent."
-}
-```
+## Project Highlights
 
-Response (`201 Created`):
-```json
-{
-  "id": 1,
-  "sender": "manager@company.com",
-  "subject": "Urgent: Q3 report needed",
-  "body": "Please send me the Q3 report by Friday EOD, this is urgent.",
-  "category": "Urgent",
-  "priority_score": 100,
-  "summary": "Please send me the Q3 report by Friday EOD, this is urgent.",
-  "action_items": "Please send me the Q3 report by Friday EOD, this is urgent.",
-  "deadline": "2026-07-17T17:53:35.553726",
-  "keywords": null,
-  "created_at": "2026-07-11T12:23:35.557403"
-}
-```
+This project demonstrates practical implementation of:
+- REST API Development
+- Backend System Design
+- Natural Language Processing
+- Text Classification
+- Information Extraction
+- Automated Summarization
+- Email Intelligence Automation
+- Analytics & Data Processing
 
-### `POST /emails/batch-ingest`
-Processes multiple emails in a single request. Validation failures are reported per item; one invalid email does not block the rest of the batch from processing.
+## Author
 
-Request body:
-```json
-[
-  { "sender": "a@test.com", "subject": "Hi", "body": "Please send the invoice by Monday." },
-  { "sender": "b@test.com", "subject": "Broken one" }
-]
-```
-
-Response (`201 Created`):
-```json
-{
-  "created": [ { "id": 7, "category": "Action Needed" } ],
-  "errors": [ { "index": 1, "error": [ { "loc": ["body"], "msg": "Field required" } ] } ]
-}
-```
-
-### `GET /emails/`
-Lists processed emails, newest first.
-
-Query parameters:
-- `category` (optional) — filter by category, e.g. `?category=Urgent`
-
-### `GET /emails/{id}`
-Retrieves a single processed email by id. Returns `404` if not found.
-
-### `DELETE /emails/{id}`
-Deletes an email by id. Returns `404` if not found.
-
-### `GET /dashboard/stats`
-Returns aggregate statistics.
-
-Response:
-```json
-{
-  "total_emails": 6,
-  "category_breakdown": { "Urgent": 2, "Meeting": 2, "Action Needed": 2 },
-  "average_priority": 75.0,
-  "upcoming_deadlines": [
-    { "id": 6, "subject": "Test", "deadline": "2026-07-13T18:08:39.404219" }
-  ]
-}
-```
-
-## Example Usage
-
-With the server running, in a separate terminal:
-
-```bash
-curl -X POST http://127.0.0.1:5000/emails/ingest \
-  -H "Content-Type: application/json" \
-  -d "{\"sender\": \"boss@company.com\", \"subject\": \"Urgent\", \"body\": \"Please review this before Friday's meeting, it's urgent.\"}"
-
-curl http://127.0.0.1:5000/emails/
-curl http://127.0.0.1:5000/dashboard/stats
-```
-
-## Known Limitations
-
-- **Keyword extraction favors shorter sentences.** `extract_keywords()` computes TF-IDF per sentence with L2 normalization, which means a short, generic sentence can receive a higher aggregate score than a longer sentence with more distinctive vocabulary, simply because its score is concentrated across fewer words. A whole-document TF-IDF approach would reduce this effect.
-- **Deadline parsing relies on regex pattern matching combined with fuzzy date parsing, rather than a full NLP-based date resolver.** It correctly handles common constructions, including possessives such as "Friday's meeting," but may not capture indirect or unusual phrasing.
-- **Categorization is single-label and priority-ordered.** Each email receives exactly one category, with ties resolved by a fixed precedence: Urgent, then Meeting, then Action Needed, then Spam-like, then Informational.
-- **Action items and keywords are persisted as delimited strings** rather than normalized relational data. This is sufficient at the current scale but would require a join table to support efficient querying by keyword.
-
-## Possible Extensions
-
-- Live inbox ingestion via IMAP, replacing manual API calls
-- Transformer-based summarization as an upgrade to the TF-IDF approach
-- Authentication (API key or JWT) prior to any deployment beyond local development
-- A frontend dashboard consuming the existing API endpoints directly
-- Full-text search across stored emails
+Developed as an AI/NLP-based backend project demonstrating intelligent email automation and backend engineering capabilities.

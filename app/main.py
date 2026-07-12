@@ -1,9 +1,18 @@
 from flask import Flask, request, jsonify
 from pydantic import ValidationError
+from collections import Counter
 
 from app.database import init_db
 from app.models import db, Email
-from app.schemas import EmailIngestRequest, EmailResponse
+from app.reply_generator import generate_reply
+
+from app.schemas import (
+    EmailIngestRequest,
+    EmailResponse,
+    EmailReplyRequest,
+    EmailReplyResponse,
+)
+
 from app.ai_engine import (
     categorize_email,
     calculate_priority,
@@ -11,9 +20,8 @@ from app.ai_engine import (
     extract_deadline,
     summarize_email,
     extract_keywords,
-    enhance_categorization,
-    enhance_summary,
-    is_llm_enabled,
+    extract_named_entities
+    
 )
 
 app = Flask(__name__)
@@ -26,6 +34,7 @@ def process_email(sender, subject, body):
     action_items = extract_action_items(body)
     summary = summarize_email(body)
     keywords = extract_keywords(body)
+    entities = extract_named_entities((subject or "") + " " + body)
 
     return {
         'sender': sender,
@@ -37,6 +46,7 @@ def process_email(sender, subject, body):
         'action_items': '; '.join(action_items) if action_items else None,
         'summary': summary,
         'keywords': ', '.join(keywords) if keywords else None,
+        'entities': entities,
     }
 
 @app.route('/emails/ingest', methods=['POST'])
@@ -57,6 +67,40 @@ def ingest_email():
 
     response = EmailResponse.model_validate(email)
     return jsonify(response.model_dump(mode='json')), 201
+
+@app.route('/emails/reply', methods=['POST'])
+def generate_email_reply():
+    raw_data = request.get_json(silent=True)
+
+    if raw_data is None:
+        return jsonify({'error': 'Request body must be valid JSON'}), 400
+
+    try:
+        validated = EmailReplyRequest(**raw_data)
+    except ValidationError as e:
+        return jsonify({'error': e.errors()}), 400
+
+    category = categorize_email(validated.subject, validated.body)
+
+    deadline = extract_deadline(
+        (validated.subject or "") + " " + validated.body
+    )
+
+    action_items = extract_action_items(validated.body)
+
+    reply = generate_reply(
+        validated.subject,
+        validated.body,
+        category,
+        deadline,
+        action_items,
+        validated.tone
+    )
+
+    response = EmailReplyResponse(reply=reply)
+
+    return jsonify(response.model_dump()), 200
+
 @app.route('/emails/batch-ingest', methods=['POST'])
 def batch_ingest_emails():
     raw_data = request.get_json(silent=True)
@@ -82,16 +126,52 @@ def batch_ingest_emails():
 
     response = [EmailResponse.model_validate(e).model_dump(mode='json') for e in created]
     return jsonify({'created': response, 'errors': errors}), 201
+
+def get_entity_statistics():
+
+    people_counter = Counter()
+    organization_counter = Counter()
+    location_counter = Counter()
+
+    emails = Email.query.all()
+
+    for email in emails:
+
+        if not email.entities:
+            continue
+
+        for person in email.entities.get("people", []):
+            people_counter[person] += 1
+
+        for org in email.entities.get("organizations", []):
+            organization_counter[org] += 1
+
+        for location in email.entities.get("locations", []):
+            location_counter[location] += 1
+
+    return {
+        "top_people": people_counter.most_common(5),
+        "top_organizations": organization_counter.most_common(5),
+        "top_locations": location_counter.most_common(5),
+    }
+
 @app.route('/dashboard/stats', methods=['GET'])
 def dashboard_stats():
     total_emails = Email.query.count()
 
     category_counts = {}
-    results = db.session.query(Email.category, db.func.count(Email.id)).group_by(Email.category).all()
+    results = db.session.query(
+        Email.category,
+        db.func.count(Email.id)
+    ).group_by(Email.category).all()
+
     for category, count in results:
         category_counts[category] = count
 
-    avg_priority = db.session.query(db.func.avg(Email.priority_score)).scalar()
+    avg_priority = db.session.query(
+        db.func.avg(Email.priority_score)
+    ).scalar()
+
     avg_priority = round(avg_priority, 1) if avg_priority is not None else None
 
     upcoming = (
@@ -101,9 +181,52 @@ def dashboard_stats():
         .limit(5)
         .all()
     )
+
     upcoming_list = [
-        {'id': e.id, 'subject': e.subject, 'deadline': e.deadline.isoformat()}
+        {
+            'id': e.id,
+            'subject': e.subject,
+            'deadline': e.deadline.isoformat()
+        }
         for e in upcoming
+    ]
+
+    entity_stats = get_entity_statistics()
+
+    urgent_emails = Email.query.filter(
+    Email.category == 'Urgent'
+    ).count()
+
+    action_needed_emails = Email.query.filter(
+        Email.category == 'Action Needed'
+    ).count()
+
+    spam_emails = Email.query.filter(
+        Email.category == 'Spam-like'
+    ).count()
+
+    spam_percentage = (
+        round((spam_emails / total_emails) * 100, 1)
+        if total_emails > 0 else 0
+    )
+
+    top_sender_results = (
+        db.session.query(
+            Email.sender,
+            db.func.count(Email.id)
+        )
+        .group_by(Email.sender)
+        .order_by(db.func.count(Email.id).desc())
+        .limit(5)
+        .all()
+    )
+
+    top_senders = [
+        {
+            "sender": sender,
+            "count": count
+        }
+        for sender, count in top_sender_results
     ]
 
     return jsonify({
@@ -111,6 +234,99 @@ def dashboard_stats():
         'category_breakdown': category_counts,
         'average_priority': avg_priority,
         'upcoming_deadlines': upcoming_list,
+
+        'urgent_emails': urgent_emails,
+        'action_needed_emails': action_needed_emails,
+        'spam_percentage': spam_percentage,
+        'top_senders': top_senders,
+
+        **entity_stats
+}), 200
+
+@app.route('/emails/<int:email_id>', methods=['GET'])
+def get_email(email_id):
+    email = Email.query.get(email_id)
+
+    if not email:
+        return jsonify({
+            "error": "Email not found"
+        }), 404
+
+    return jsonify({
+        "id": email.id,
+        "sender": email.sender,
+        "subject": email.subject,
+        "body": email.body,
+        "category": email.category,
+        "priority_score": email.priority_score,
+        "summary": email.summary,
+        "action_items": email.action_items,
+        "entities": email.entities
     }), 200
+
+@app.route('/emails', methods=['GET'])
+def get_all_emails():
+    page = request.args.get('page', 1, type=int)
+    limit = request.args.get('limit', 10, type=int)
+
+
+    query = Email.query
+
+    category = request.args.get('category')
+    if category:
+        query = query.filter(Email.category == category)
+
+    min_priority = request.args.get('min_priority', type=int)
+    if min_priority:
+        query = query.filter(Email.priority_score >= min_priority)
+
+    sender = request.args.get('sender')
+    if sender:
+        query = query.filter(Email.sender.ilike(f"%{sender}%"))
+
+    total_emails = query.count()
+
+    emails = (
+        query
+        .order_by(Email.id.desc())
+        .paginate(page=page, per_page=limit, error_out=False)
+    )
+
+    email_list = []
+
+    for email in emails.items:
+        email_list.append({
+            "id": email.id,
+            "sender": email.sender,
+            "subject": email.subject,
+            "category": email.category,
+            "priority_score": email.priority_score,
+            "summary": email.summary
+        })
+
+    return jsonify({
+        "page": page,
+        "limit": limit,
+        "total": total_emails,
+        "emails": email_list
+    }), 200
+
+@app.route('/emails/<int:email_id>', methods=['DELETE'])
+def delete_email(email_id):
+    email = Email.query.get(email_id)
+
+    if not email:
+        return jsonify({
+            "error": "Email not found"
+        }), 404
+
+    db.session.delete(email)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Email deleted successfully",
+        "deleted_id": email_id
+    }), 200
+
 if __name__ == '__main__':
     app.run(debug=True)

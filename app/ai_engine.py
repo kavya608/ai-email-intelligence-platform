@@ -2,6 +2,8 @@ import re
 from dateutil import parser as date_parser
 from datetime import datetime
 
+
+
 URGENT_KEYWORDS = ['urgent', 'asap', 'immediately', 'critical', 'emergency']
 MEETING_KEYWORDS = ['meeting', 'call', 'schedule', 'calendar', 'invite', 'zoom', 'teams']
 ACTION_KEYWORDS = ['please', 'need you to', 'action required', 'complete', 'submit', 'review']
@@ -18,14 +20,18 @@ def categorize_email(subject, body):
     text = (subject or '') + ' ' + (body or '')
     text = text.lower()
 
-    if any(keyword in text for keyword in URGENT_KEYWORDS):
+    if any(keyword in text for keyword in SPAM_KEYWORDS):
+        return 'Spam-like'
+
+    elif any(keyword in text for keyword in URGENT_KEYWORDS):
         return 'Urgent'
+
     elif any(keyword in text for keyword in MEETING_KEYWORDS):
         return 'Meeting'
+
     elif any(keyword in text for keyword in ACTION_KEYWORDS):
         return 'Action Needed'
-    elif any(keyword in text for keyword in SPAM_KEYWORDS):
-        return 'Spam-like'
+
     else:
         return 'Informational'
 
@@ -41,7 +47,11 @@ def calculate_priority(category, text, has_deadline):
 
     score = base_scores.get(category, 20)
 
+    if category == 'Spam-like':
+        return score
+
     text_lower = text.lower()
+
     if any(keyword in text_lower for keyword in URGENT_KEYWORDS):
         score += 10
 
@@ -50,13 +60,11 @@ def calculate_priority(category, text, has_deadline):
 
     return min(score, 100)
 
-
 def extract_action_items(body):
     if not body:
         return []
 
-    sentences = re.split(r'(?<=[.!?])\s+', body)
-
+    sentences = re.split(r'(?<!Rs)(?<!Mrs)(?<!Mr)(?<=[.!?])\s+', body)
     action_items = []
     for sentence in sentences:
         sentence_lower = sentence.lower()
@@ -89,19 +97,36 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 def split_sentences(text):
     if not text:
         return []
+
+    abbreviations = [
+        "Rs.",
+        "Mr.",
+        "Mrs.",
+        "Dr.",
+        "Ms.",
+        "Inc.",
+        "Ltd."
+    ]
+
+    for abbr in abbreviations:
+        text = text.replace(abbr, abbr.replace(".", "<DOT>"))
+
     sentences = re.split(r'(?<=[.!?])\s+', text)
-    return [s.strip() for s in sentences if s.strip()]
+
+    sentences = [
+        s.replace("<DOT>", ".").strip()
+        for s in sentences
+        if s.strip()
+    ]
+
+    return sentences
 
 
-def summarize_email(body, num_sentences=3):
-    """
-    Picks the num_sentences most 'important' sentences (by TF-IDF score)
-    and returns them in their original order.
-    """
+def summarize_email(body, num_sentences=1):
     sentences = split_sentences(body)
 
-    if len(sentences) <= num_sentences:
-        return body
+    if len(sentences) <= 2:
+        return sentences[0]
 
     vectorizer = TfidfVectorizer(stop_words='english')
     tfidf_matrix = vectorizer.fit_transform(sentences)
@@ -116,94 +141,88 @@ def summarize_email(body, num_sentences=3):
 
 
 def extract_keywords(body, num_keywords=5):
-    """
-    Returns the most distinctive words in the email, by TF-IDF score,
-    treating each sentence as its own mini-document.
-    """
-    sentences = split_sentences(body)
 
-    if len(sentences) < 2:
+    if not body:
         return []
 
-    vectorizer = TfidfVectorizer(stop_words='english')
-    tfidf_matrix = vectorizer.fit_transform(sentences)
+    if len(split_sentences(body)) < 2:
+        vectorizer = TfidfVectorizer(stop_words='english')
+        tfidf_matrix = vectorizer.fit_transform([body])
+
+    else:
+        sentences = split_sentences(body)
+        vectorizer = TfidfVectorizer(stop_words='english')
+        tfidf_matrix = vectorizer.fit_transform(sentences)
 
     feature_names = vectorizer.get_feature_names_out()
     scores = tfidf_matrix.sum(axis=0).A1
 
     top_indices = scores.argsort()[-num_keywords:][::-1]
-    keywords = [feature_names[i] for i in top_indices]
 
-    return keywords
+    return [feature_names[i] for i in top_indices]
 
-import os
-from dotenv import load_dotenv
-from anthropic import Anthropic
+import spacy
 
-load_dotenv()
+nlp = spacy.load("en_core_web_sm")
 
-api_key = os.getenv('ANTHROPIC_API_KEY')
-client = Anthropic(api_key=api_key) if api_key else None
+ENTITY_MAPPING = {
+    "PERSON": "people",
+    "ORG": "organizations",
+    "DATE": "dates",
+    "MONEY": "money",
+    "GPE": "locations",
+}
 
+def extract_named_entities(text):
 
-def is_llm_enabled():
-    return client is not None
+    result = {
+        "people": [],
+        "organizations": [],
+        "dates": [],
+        "money": [],
+        "locations": []
+    }
 
+    if not text:
+        return result
 
-def enhance_categorization(subject, body, rule_based_category):
-    """
-    If an Anthropic API key is configured, asks Claude to refine the
-    rule-based category. Falls back to the rule-based result if the
-    LLM isn't configured, returns something unexpected, or the call
-    fails for any reason.
-    """
-    if not is_llm_enabled():
-        return rule_based_category
+    doc = nlp(text)
 
-    try:
-        message = client.messages.create(
-            model="claude-sonnet-4-5",
-            max_tokens=20,
-            messages=[{
-                "role": "user",
-                "content": (
-                    "Classify this email into exactly one category: "
-                    "Urgent, Action Needed, Meeting, Informational, or Spam-like. "
-                    "Reply with only the category name, nothing else.\n\n"
-                    f"Subject: {subject}\nBody: {body}"
-                )
-            }]
-        )
-        llm_category = message.content[0].text.strip()
+    for ent in doc.ents:
 
-        valid_categories = ['Urgent', 'Action Needed', 'Meeting', 'Informational', 'Spam-like']
-        if llm_category in valid_categories:
-            return llm_category
-        return rule_based_category
+        key = ENTITY_MAPPING.get(ent.label_)
 
-    except Exception as e:
-        print(f"LLM categorization failed, falling back to rule-based: {e}")
-        return rule_based_category
+        if key:
+            value = ent.text.strip()
 
+            if key == "organizations" and value.lower().startswith("the "):
+                value = value[4:]
 
-def enhance_summary(body, rule_based_summary):
-    """
-    Same fallback philosophy as above, but for summarization.
-    """
-    if not is_llm_enabled():
-        return rule_based_summary
+            if value not in result[key]:
+                result[key].append(value)
 
-    try:
-        message = client.messages.create(
-            model="claude-sonnet-4-5",
-            max_tokens=150,
-            messages=[{
-                "role": "user",
-                "content": f"Summarize this email in 1-2 concise sentences:\n\n{body}"
-            }]
-        )
-        return message.content[0].text.strip()
+    # Regex-based extraction for Indian currency
+    money_pattern = r'(?:₹|Rs\.?|INR|\?)\s?\d+(?:,\d+)*(?:\.\d+)?'
 
-    except Exception as e:
-        print(f"LLM summarization failed, falling back to TF-IDF summary: {type(e).__name__}: {e}")
-        return rule_based_summary
+    regex_money = re.findall(money_pattern, text, flags=re.IGNORECASE)
+
+    for amount in regex_money:
+        if amount not in result["money"]:
+            result["money"].append(amount)
+
+    cleaned_orgs = []
+
+    for org in result["organizations"]:
+
+        if re.search(r"\d", org):
+            continue
+
+        if len(org.split()) > 3:
+            continue
+
+        if org not in cleaned_orgs:
+            cleaned_orgs.append(org)
+
+    result["organizations"] = cleaned_orgs
+
+    return result

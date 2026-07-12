@@ -1,7 +1,12 @@
-flask
-flask-sqlalchemy
+Flask
+Flask-SQLAlchemy
 pydantic
 scikit-learn
 python-dateutil
-anthropic
-python-dotenv
+spacy
+
+### Install the spaCy English Model
+
+```bash
+python -m spacy download en_core_web_sm
+```
