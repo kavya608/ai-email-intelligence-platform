@@ -379,15 +379,15 @@ Returns:
 
 | Dashboard | Emails |
 |---|---|
-| ![Dashboard](screenshots/Dashboard.png) | ![Emails](screenshots/Emails-List.png) |
+| ![Dashboard](screenshots/dashboard.png) | ![Emails](screenshots/emails-list.png) |
 
 | Email Details |
 |---|
-| ![Email Details](screenshots/Email.png) |
+| ![Email Details](screenshots/email.png) |
 
 **Analytics**
 
-| ![Analytics 1](screenshots/Analytics-1.png) | ![Analytics 2](screenshots/Analytics-2.png) | ![Analytics 3](screenshots/Analytics-3.png) |
+| ![Analytics 1](screenshots/analytics-1.png) | ![Analytics 2](screenshots/analytics-2.png) | ![Analytics 3](screenshots/analytics-3.png) |
 |---|---|---|
 
 ---
