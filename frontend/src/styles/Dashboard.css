@@ -1,0 +1,25 @@
+.dashboard {
+    padding: 30px;
+}
+
+.dashboard-header {
+    margin-bottom: 30px;
+}
+
+.dashboard-header h1 {
+    margin: 0;
+    font-size: 34px;
+    color: #1F2937;
+}
+
+.dashboard-header p {
+    margin-top: 8px;
+    color: #6B7280;
+    font-size: 16px;
+}
+
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+}

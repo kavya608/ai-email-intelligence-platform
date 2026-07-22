@@ -6,3 +6,6 @@ instance/
 *.db
 .DS_Store
 .vscode/
+
+node_modules/
+frontend/dist/

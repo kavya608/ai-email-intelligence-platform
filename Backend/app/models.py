@@ -1,7 +1,5 @@
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
-
-db = SQLAlchemy()
+from .database import db
 
 class Email(db.Model):
     __tablename__ = 'emails'

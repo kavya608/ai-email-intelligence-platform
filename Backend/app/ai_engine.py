@@ -93,7 +93,6 @@ def extract_deadline(text):
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-
 def split_sentences(text):
     if not text:
         return []
@@ -173,6 +172,50 @@ ENTITY_MAPPING = {
     "GPE": "locations",
 }
 
+VALID_COMPANIES = {
+    "Microsoft",
+    "Google",
+    "Infosys",
+    "Amazon",
+    "IBM",
+    "Apple",
+    "Meta",
+    "OpenAI",
+    "Accenture",
+    "TCS",
+    "Wipro",
+    "HCL",
+    "Oracle",
+    "Adobe",
+    "Intel",
+    "Cisco",
+    "SAP",
+    "Deloitte",
+    "EY",
+    "KPMG",
+    "PwC"
+}
+
+INVALID_ORGS = {
+    "Budget",
+    "Invoice",
+    "Payment",
+    "Invoice Payment Please",
+    "Meeting",
+    "Reminder",
+    "Tomorrow",
+    "Friday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Saturday",
+    "Sunday",
+    "Hyderabad",
+    "Bangalore",
+    "Bengaluru"
+}
+
 def extract_named_entities(text):
 
     result = {
@@ -187,6 +230,23 @@ def extract_named_entities(text):
         return result
 
     doc = nlp(text)
+    INVALID_PEOPLE = {
+        "Rs",
+        "INR",
+        "USD",
+        "Dollar",
+        "Dollars",
+        "Payment",
+        "Invoice",
+        "Amount",
+        "Money",
+        "Budget",
+        "Total",
+        "Mr",
+        "Mrs",
+        "Ms",
+        "Dr"
+    }
 
     for ent in doc.ents:
 
@@ -194,6 +254,17 @@ def extract_named_entities(text):
 
         if key:
             value = ent.text.strip()
+            if key == "people":
+
+                if value in INVALID_PEOPLE:
+                    continue
+
+                if len(value) <= 2:
+                    continue
+
+                if re.search(r"\d", value):
+                    continue
+
 
             if key == "organizations" and value.lower().startswith("the "):
                 value = value[4:]
@@ -207,12 +278,18 @@ def extract_named_entities(text):
     regex_money = re.findall(money_pattern, text, flags=re.IGNORECASE)
 
     for amount in regex_money:
+
+        amount = amount.replace("?", "Rs.")
+
         if amount not in result["money"]:
+
             result["money"].append(amount)
 
     cleaned_orgs = []
 
     for org in result["organizations"]:
+
+        org = org.strip()
 
         if re.search(r"\d", org):
             continue
@@ -220,9 +297,41 @@ def extract_named_entities(text):
         if len(org.split()) > 3:
             continue
 
-        if org not in cleaned_orgs:
+        if org in INVALID_ORGS:
+            continue
+
+        if org in VALID_COMPANIES:
+
             cleaned_orgs.append(org)
 
-    result["organizations"] = cleaned_orgs
+    result["organizations"] = list(set(cleaned_orgs))
+    normalized_locations = []
+
+    LOCATION_MAP = {
+        "Bangalore": "Bengaluru",
+        "Bengaluru": "Bengaluru",
+        "Bombay": "Mumbai",
+        "Madras": "Chennai"
+    }
+
+    for location in result["locations"]:
+
+        location = LOCATION_MAP.get(location, location)
+
+        if location not in normalized_locations:
+            normalized_locations.append(location)
+
+    result["locations"] = normalized_locations
+    cleaned_dates = []
+
+    for date in result["dates"]:
+
+        if date.isdigit():
+            continue
+
+        cleaned_dates.append(date)
+
+    result["dates"] = cleaned_dates
+
 
     return result

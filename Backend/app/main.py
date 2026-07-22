@@ -1,8 +1,10 @@
+from sqlalchemy import or_
 from flask import Flask, request, jsonify
 from pydantic import ValidationError
 from collections import Counter
+from flask_cors import CORS
 
-from app.database import init_db
+from .database import init_db, db
 from app.models import db, Email
 from app.reply_generator import generate_reply
 
@@ -24,8 +26,23 @@ from app.ai_engine import (
     
 )
 
-app = Flask(__name__)
+import os
+
+BASE_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..")
+)
+
+app = Flask(
+    __name__,
+    instance_path=os.path.join(BASE_DIR, "instance"),
+    instance_relative_config=True
+)
 init_db(app)
+import os
+
+print("Instance Path:", app.instance_path)
+print("Database URI:", app.config["SQLALCHEMY_DATABASE_URI"])
+CORS(app)
 def process_email(sender, subject, body):
     category = categorize_email(subject, body)
     deadline = extract_deadline((subject or '') + ' ' + body)
@@ -228,6 +245,13 @@ def dashboard_stats():
         }
         for sender, count in top_sender_results
     ]
+    priority_distribution = {
+    "0-20": Email.query.filter(Email.priority_score.between(0, 20)).count(),
+    "21-40": Email.query.filter(Email.priority_score.between(21, 40)).count(),
+    "41-60": Email.query.filter(Email.priority_score.between(41, 60)).count(),
+    "61-80": Email.query.filter(Email.priority_score.between(61, 80)).count(),
+    "81-100": Email.query.filter(Email.priority_score.between(81, 100)).count()
+    }
 
     return jsonify({
         'total_emails': total_emails,
@@ -239,6 +263,7 @@ def dashboard_stats():
         'action_needed_emails': action_needed_emails,
         'spam_percentage': spam_percentage,
         'top_senders': top_senders,
+        "priority_distribution": priority_distribution,
 
         **entity_stats
 }), 200
@@ -272,6 +297,7 @@ def get_all_emails():
 
     query = Email.query
 
+    
     category = request.args.get('category')
     if category:
         query = query.filter(Email.category == category)
@@ -280,17 +306,50 @@ def get_all_emails():
     if min_priority:
         query = query.filter(Email.priority_score >= min_priority)
 
-    sender = request.args.get('sender')
-    if sender:
-        query = query.filter(Email.sender.ilike(f"%{sender}%"))
+    search = request.args.get("search")
+
+    if search:
+
+        query = query.filter(
+
+            or_(
+
+                Email.subject.ilike(f"%{search}%"),
+
+                Email.sender.ilike(f"%{search}%"),
+
+                Email.summary.ilike(f"%{search}%"),
+
+                Email.category.ilike(f"%{search}%")
+
+            )
+
+        )
+    sort = request.args.get("sort")
+
+    if sort == "priority-high":
+        query = query.order_by(Email.priority_score.desc())
+
+    elif sort == "priority-low":
+        query = query.order_by(Email.priority_score.asc())
+
+    elif sort == "subject-asc":
+        query = query.order_by(Email.subject.asc())
+
+    elif sort == "subject-desc":
+        query = query.order_by(Email.subject.desc())
+
+    else:
+        query = query.order_by(Email.id.desc())
+
 
     total_emails = query.count()
 
-    emails = (
-        query
-        .order_by(Email.id.desc())
-        .paginate(page=page, per_page=limit, error_out=False)
-    )
+    emails = query.paginate(
+    page=page,
+    per_page=limit,
+    error_out=False
+)
 
     email_list = []
 
