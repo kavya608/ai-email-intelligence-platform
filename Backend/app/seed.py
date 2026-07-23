@@ -2,7 +2,7 @@ import json
 import os
 
 from app.models import Email
-from app.main import process_email
+from app.email_processor import process_email
 from app.database import db
 
 
