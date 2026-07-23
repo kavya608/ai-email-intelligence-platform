@@ -49,6 +49,8 @@ print("Database URI:", app.config["SQLALCHEMY_DATABASE_URI"])
 CORS(app)
 with app.app_context():
     db.create_all()
+    from app.seed import seed_database
+    seed_database()
 def process_email(sender, subject, body):
     category = categorize_email(subject, body)
     deadline = extract_deadline((subject or '') + ' ' + body)
