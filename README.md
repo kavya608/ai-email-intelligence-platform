@@ -1,24 +1,34 @@
 # 📧 AI Email Intelligence Platform
 
-An AI-powered email intelligence platform that automatically classifies incoming emails, scores their priority, summarizes content, extracts key entities, generates context-aware reply suggestions, and surfaces the results through an interactive analytics dashboard — turning a raw inbox into structured, actionable data.
+An AI-powered full-stack email intelligence platform that transforms raw emails into structured insights.
 
-Built with a **React + Flask** architecture and a classical **NLP pipeline** (spaCy, scikit-learn, TF-IDF, rule-based intent detection) rather than an LLM. See [Why Classical NLP Instead of an LLM?](#-why-classical-nlp-instead-of-an-llm) for the reasoning.
+The system automatically:
+- Classifies email intent
+- Calculates priority scores
+- Generates summaries
+- Extracts named entities
+- Identifies action items and deadlines
+- Generates context-aware reply suggestions
+- Provides analytics through an interactive dashboard
+
+Built with a **React + Flask** full-stack architecture and a classical **NLP pipeline** (spaCy, scikit-learn, TF-IDF, rule-based intent detection) rather than an LLM. See [Why Classical NLP Instead of an LLM?](#-why-classical-nlp-instead-of-an-llm) for the reasoning.
 
 ---
 
 ## Table of Contents
 
-- [Demo](#-demo)
+- [Live Demo](#-live-demo)
 - [Project Status](#-project-status)
 - [Features](#-features)
-- [System Architecture](#-system-architecture)
+- [System Architecture](#️-architecture)
 - [Database Design](#️-database-design)
 - [Tech Stack](#-tech-stack)
 - [Why Classical NLP Instead of an LLM?](#-why-classical-nlp-instead-of-an-llm)
 - [Project Structure](#-project-structure)
 - [Installation & Setup](#-installation--setup)
+- [Deployment](#-deployment)
 - [Environment Variables](#-environment-variables)
-- [API Documentation](#-api-documentation)
+- [API Documentation](#-api-endpoints)
 - [Screenshots](#-screenshots)
 - [Engineering Highlights](#-engineering-highlights)
 - [Future Improvements](#-future-improvements)
@@ -26,79 +36,69 @@ Built with a **React + Flask** architecture and a classical **NLP pipeline** (sp
 
 ---
 
-## 🎥 Demo
+## 🌐 Live Demo
 
-- **Frontend:** _coming soon_
-- **Backend API:** _coming soon_
+**Frontend:** [https://ai-email-intelligence-platform.vercel.app](https://ai-email-intelligence-platform.vercel.app/)
 
-*(Update this section once deployed.)*
+**Backend API:** [https://ai-email-intelligence-platform.onrender.com](https://ai-email-intelligence-platform.onrender.com)
+
+**Repository:** [https://github.com/kavya608/ai-email-intelligence-platform](https://github.com/kavya608/ai-email-intelligence-platform)
+
+> Note: the Render free tier spins down after inactivity, so the first request after idling may take up to a minute to respond.
 
 ---
 
 ## 📌 Project Status
 
-🚧 Active Development
+🚀 Deployed — Backend on Render, Frontend on Vercel
 
 **Implemented:**
 - Backend REST APIs
 - NLP processing pipeline (classification, priority, summary, entities)
 - React dashboard
 - Email analytics
+- Full-stack deployment (Render + Vercel)
 
 **Planned:**
-- Cloud deployment
 - Gmail/Outlook integration
 - LLM-based enhancement
+- Authentication and user accounts
 
 ---
 
-## 🚀 Features
+## ✨ Features
 
-### Email Intelligence
-- Rule/keyword-based intent classification
-- Automatic priority scoring
-- Spam detection
-- Extractive email summarization (TF-IDF)
-- Action item extraction
-- Deadline identification
-- Context-aware reply suggestions
+### Backend
+✅ Email ingestion API
+✅ Batch email processing
+✅ NLP-based classification
+✅ Priority scoring
+✅ Spam detection
+✅ Email summarization (TF-IDF)
+✅ Named entity extraction (people, orgs, locations, dates, money)
+✅ Action item & deadline detection
+✅ Reply generation API
+✅ Dashboard statistics API
 
-### NLP Capabilities
-- **Named Entity Recognition (NER)** via spaCy
-  - 👤 People
-  - 🏢 Organizations
-  - 📍 Locations
-  - 📅 Dates
-  - 💰 Money
-- TF-IDF based email summarization
-- Keyword-based intent detection
-
-### Dashboard Analytics
-- Total email count
-- Category distribution
-- Average priority score
-- Spam percentage
-- Action-required emails
-- Entity statistics
-- Upcoming deadlines
-
-### Email Management
-- Search emails
-- Filter by category
-- Sort emails
-- Pagination
-- Email detail view
+### Frontend
+✅ React dashboard
+✅ Email listing interface
+✅ Search and filtering
+✅ Sorting and pagination
+✅ Email details view
+✅ Analytics cards & charts
+✅ Responsive UI
 
 ---
 
-## 🏗 System Architecture
+## 🏗️ Architecture
 
 ```
-React Frontend
+React Frontend (Vercel)
       │
       │  Axios REST API
       ▼
-Flask Backend API
+Flask Backend API (Render)
       │
       ▼
 AI Processing Engine
@@ -116,6 +116,21 @@ Classification   Scoring     Generation    Extraction
 
 ---
 
+## 🔄 Email Processing Workflow
+
+1. User submits an email
+2. Flask API receives the request
+3. NLP pipeline processes the content:
+   - Intent classification
+   - Priority calculation
+   - Summary generation
+   - Entity extraction
+   - Action detection
+4. Results are stored in SQLite
+5. React dashboard displays insights
+
+---
+
 ## 🗄️ Database Design
 
 Processed email intelligence is stored using SQLAlchemy ORM. Each email record includes:
@@ -124,7 +139,7 @@ Processed email intelligence is stored using SQLAlchemy ORM. Each email record i
 - Subject and content
 - Category
 - Priority score
-- AI-generated summary
+- NLP-generated summary
 - Extracted entities
 - Action items
 - Deadlines
@@ -134,27 +149,33 @@ Processed email intelligence is stored using SQLAlchemy ORM. Each email record i
 
 ## 🛠 Tech Stack
 
-**Frontend**
+### Frontend
 - React
 - Vite
-- Axios
 - React Router
+- Axios
 - Recharts
 - Lucide React
 - CSS
 
-**Backend**
+### Backend
 - Python
 - Flask
 - Flask-SQLAlchemy
 - Pydantic
-- SQLite
 
-**AI / NLP**
+### AI / NLP
 - spaCy
 - Scikit-learn
-- TF-IDF
-- Rule-based NLP techniques
+- TF-IDF based summarization
+- Rule-based classification engine
+
+### Database
+- SQLite
+
+### Deployment
+- Render (Backend)
+- Vercel (Frontend)
 
 ---
 
@@ -189,7 +210,7 @@ AI_Email_Intelligence_Platform/
 │   ├── requirements.txt
 │   └── run.py
 │
-├── Frontend/
+├── frontend/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── Sidebar.jsx
@@ -221,6 +242,8 @@ AI_Email_Intelligence_Platform/
 ---
 
 ## ⚙️ Installation & Setup
+
+Run the project locally for development:
 
 ### 1. Clone the Repository
 
@@ -265,7 +288,7 @@ http://127.0.0.1:5000
 
 Navigate to the frontend directory:
 ```bash
-cd Frontend
+cd frontend
 ```
 
 Install packages:
@@ -285,6 +308,36 @@ http://localhost:5173
 
 ---
 
+## 🚀 Deployment
+
+The live version of this project is deployed as follows:
+
+### Backend — Render
+
+```bash
+cd Backend
+pip install -r requirements.txt
+python -m app.main
+```
+
+- Hosted as a Web Service on [Render](https://render.com)
+- Uses the `requirements.txt` for build and `python -m app.main` (or a configured start command) to run
+- Note: free-tier Render services spin down when idle and cold-start on the next request
+
+### Frontend — Vercel
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+- Hosted on [Vercel](https://vercel.com)
+- Framework preset: Vite
+- The frontend's Axios base URL is configured to point at the deployed Render backend API
+
+---
+
 ## 🔐 Environment Variables
 
 The project currently runs on SQLite by default (`instance/email_intelligence.db`).
@@ -295,51 +348,39 @@ Optional `.env` configuration inside `Backend/`:
 DATABASE_URL=sqlite:///instance/email_intelligence.db
 ```
 
+For the deployed frontend, configure the backend API base URL (e.g. in `frontend/.env`):
+
+```
+VITE_API_BASE_URL=https://ai-email-intelligence-platform.onrender.com
+```
+
+*(the `/emails` path shown in the Live Demo link above is one specific endpoint — the frontend should point at the base URL without the path)*
+
 ---
 
-## 📡 API Documentation
+## 🔌 API Endpoints
 
-### Ingest Email
-**POST**
-```
-/emails/ingest
-```
-Adds a new email and processes it using the AI engine.
-
-### Batch Email Processing
-**POST**
-```
-/emails/batch-ingest
-```
-Processes multiple emails together.
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/emails/ingest` | Process and store a single email |
+| POST | `/emails/batch-ingest` | Process multiple emails together |
+| GET | `/emails/` | Fetch emails (pagination, search, filtering, sorting) |
+| GET | `/emails/<id>` | Fetch complete email intelligence for one email |
+| DELETE | `/emails/<id>` | Delete an email |
+| POST | `/emails/reply` | Generate a context-aware reply suggestion |
+| GET | `/dashboard/stats` | Fetch dashboard analytics and statistics |
 
 ### Get Emails
-**GET**
 ```
-/emails/
+GET /emails/?page=1&limit=10
 ```
-Supports:
-- Pagination
-- Search
-- Filtering
-- Sorting
-
-Example:
-```
-/emails/?page=1&limit=10
-```
+Supports pagination, search, filtering, and sorting.
 
 ### Get Email Details
-**GET**
 ```
-/emails/<id>
+GET /emails/<id>
 ```
-Returns complete email intelligence:
-- Category
-- Priority
-- Summary
-- Entities
-- Action items
+Returns complete email intelligence: category, priority, summary, entities, and action items.
 
 **Example Response:**
 ```json
@@ -354,24 +395,6 @@ Returns complete email intelligence:
   "action_items": ["Confirm attendance", "Prepare project update"]
 }
 ```
-
-### Generate Reply
-**POST**
-```
-/emails/reply
-```
-Generates a context-aware reply suggestion based on the email's content and intent.
-
-### Dashboard Statistics
-**GET**
-```
-/dashboard/stats
-```
-Returns:
-- Email statistics
-- Category breakdown
-- Priority metrics
-- Entity insights
 
 ---
 
@@ -394,14 +417,13 @@ Returns:
 
 ## 🧩 Engineering Highlights
 
-- Designed REST APIs using Flask
+- Designed and deployed REST APIs using Flask, hosted on Render
 - Implemented a modular AI processing pipeline (classification, priority scoring, summarization, entity extraction)
 - Used SQLAlchemy ORM for database management
-- Integrated the React frontend with the Flask backend via Axios
+- Integrated the React frontend with the Flask backend via Axios, deployed on Vercel
 - Implemented pagination and filtering for scalable email retrieval
 - Built analytics endpoints for dashboard visualization
-
----
+- Built reusable React components, routing structure, and API-driven frontend workflows using Axios
 
 ## 🌍 Future Improvements
 
@@ -410,7 +432,6 @@ Returns:
 - 📬 Outlook integration
 - 🔔 Smart notifications
 - 🧠 Advanced AI reply generation
-- ☁️ Cloud deployment
 - 🔐 User authentication
 - 📱 Mobile application
 
