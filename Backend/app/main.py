@@ -43,6 +43,8 @@ import os
 print("Instance Path:", app.instance_path)
 print("Database URI:", app.config["SQLALCHEMY_DATABASE_URI"])
 CORS(app)
+with app.app_context():
+    db.create_all()
 def process_email(sender, subject, body):
     category = categorize_email(subject, body)
     deadline = extract_deadline((subject or '') + ' ' + body)
