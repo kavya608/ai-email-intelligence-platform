@@ -179,109 +179,19 @@ def get_entity_statistics():
     }
 @app.route('/dashboard/stats', methods=['GET'])
 def dashboard_stats():
-    try:
-        total_emails = Email.query.count()
+    emails = Email.query.all()
 
-        category_counts = {}
-        results = db.session.query(
-            Email.category,
-            db.func.count(Email.id)
-        ).group_by(Email.category).all()
-
-        for category, count in results:
-            category_counts[category] = count
-
-        avg_priority = db.session.query(
-            db.func.avg(Email.priority_score)
-        ).scalar()
-
-        avg_priority = round(avg_priority, 1) if avg_priority is not None else None
-
-        upcoming = (
-            Email.query
-            .filter(Email.deadline.isnot(None))
-            .order_by(Email.deadline.asc())
-            .limit(5)
-            .all()
-        )
-
-        upcoming_list = [
+    return jsonify({
+        "count": len(emails),
+        "emails": [
             {
-                'id': e.id,
-                'subject': e.subject,
-                'deadline': e.deadline.isoformat()
+                "id": e.id,
+                "sender": e.sender,
+                "subject": e.subject
             }
-            for e in upcoming
+            for e in emails
         ]
-
-        entity_stats = get_entity_statistics()
-
-        urgent_emails = Email.query.filter(
-            Email.category == 'Urgent'
-        ).count()
-
-        action_needed_emails = Email.query.filter(
-            Email.category == 'Action Needed'
-        ).count()
-
-        spam_emails = Email.query.filter(
-            Email.category == 'Spam-like'
-        ).count()
-
-        spam_percentage = (
-            round((spam_emails / total_emails) * 100, 1)
-            if total_emails > 0 else 0
-        )
-
-        top_sender_results = (
-            db.session.query(
-                Email.sender,
-                db.func.count(Email.id)
-            )
-            .group_by(Email.sender)
-            .order_by(db.func.count(Email.id).desc())
-            .limit(5)
-            .all()
-        )
-
-        top_senders = [
-            {
-                "sender": sender,
-                "count": count
-            }
-            for sender, count in top_sender_results
-        ]
-
-        priority_distribution = {
-            "0-20": Email.query.filter(Email.priority_score.between(0, 20)).count(),
-            "21-40": Email.query.filter(Email.priority_score.between(21, 40)).count(),
-            "41-60": Email.query.filter(Email.priority_score.between(41, 60)).count(),
-            "61-80": Email.query.filter(Email.priority_score.between(61, 80)).count(),
-            "81-100": Email.query.filter(Email.priority_score.between(81, 100)).count()
-        }
-
-        return jsonify({
-            'total_emails': total_emails,
-            'category_breakdown': category_counts,
-            'average_priority': avg_priority,
-            'upcoming_deadlines': upcoming_list,
-            'urgent_emails': urgent_emails,
-            'action_needed_emails': action_needed_emails,
-            'spam_percentage': spam_percentage,
-            'top_senders': top_senders,
-            'priority_distribution': priority_distribution,
-            **entity_stats
-        }), 200
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-
-        return jsonify({
-            "error": str(e),
-            "type": type(e).__name__
-        }), 500
-
+    }), 200
 @app.route('/emails/<int:email_id>', methods=['GET'])
 def get_email(email_id):
     email = Email.query.get(email_id)
@@ -377,6 +287,7 @@ def get_all_emails():
             "error": str(e),
             "type": type(e).__name__
         }), 500
+    
 @app.route('/emails/<int:email_id>', methods=['DELETE'])
 def delete_email(email_id):
     email = Email.query.get(email_id)
