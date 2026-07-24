@@ -40,7 +40,7 @@ Built with a **React + Flask** full-stack architecture and a classical **NLP pip
 
 **Frontend:** [https://ai-email-intelligence-platform.vercel.app](https://ai-email-intelligence-platform.vercel.app/)
 
-**Backend API:** [https://ai-email-intelligence-platform.onrender.com](https://ai-email-intelligence-platform.onrender.com)
+**Backend API:** [https://ai-email-intelligence-platform.onrender.com](https://ai-email-intelligence-platform.onrender.com/emails)
 
 **Repository:** [https://github.com/kavya608/ai-email-intelligence-platform](https://github.com/kavya608/ai-email-intelligence-platform)
 
