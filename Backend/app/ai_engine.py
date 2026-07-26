@@ -1,8 +1,7 @@
 import re
 from dateutil import parser as date_parser
-from datetime import datetime
-
-
+from datetime import datetime, timedelta
+from datetime import datetime, timedelta
 
 URGENT_KEYWORDS = ['urgent', 'asap', 'immediately', 'critical', 'emergency']
 MEETING_KEYWORDS = ['meeting', 'call', 'schedule', 'calendar', 'invite', 'zoom', 'teams']
@@ -77,15 +76,58 @@ def extract_action_items(body):
 def extract_deadline(text):
     if not text:
         return None
-    pattern = r"\b(?:by|before|due|deadline is|deadline:)\s+([A-Za-z0-9,'\s]+?)(?:[.,!\n]|$)"
-    
+
+    text = text.lower()
+
+    now = datetime.now()
+
+
+    if "today" in text:
+        hour_match = re.search(r"today\s*(\d{1,2})\s*(am|pm)?", text)
+        if hour_match:
+            hour = int(hour_match.group(1))
+            meridian = hour_match.group(2)
+
+            if meridian == "pm" and hour != 12:
+                hour += 12
+            elif meridian == "am" and hour == 12:
+                hour = 0
+
+            return now.replace(hour=hour, minute=0, second=0, microsecond=0)
+
+        return now
+
+    if "tomorrow" in text:
+        tomorrow = now + timedelta(days=1)
+
+        hour_match = re.search(r"tomorrow\s*(\d{1,2})\s*(am|pm)?", text)
+        if hour_match:
+            hour = int(hour_match.group(1))
+            meridian = hour_match.group(2)
+
+            if meridian == "pm" and hour != 12:
+                hour += 12
+            elif meridian == "am" and hour == 12:
+                hour = 0
+
+            return tomorrow.replace(hour=hour, minute=0, second=0, microsecond=0)
+
+        return tomorrow
+
+
+    pattern = r"\b(?:by|before|due|deadline is|deadline:)\s+([A-Za-z0-9,'\s:]+?)(?:[.,!\n]|$)"
+
     matches = re.findall(pattern, text, re.IGNORECASE)
 
     for match in matches:
         candidate = match.strip()
+
         try:
-            parsed_date = date_parser.parse(candidate, fuzzy=True, default=datetime.now())
-            return parsed_date
+            return date_parser.parse(
+                candidate,
+                fuzzy=True,
+                default=now
+            )
         except (ValueError, OverflowError):
             continue
 

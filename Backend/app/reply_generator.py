@@ -48,7 +48,7 @@ def generate_reply(
             reply += f"\nI will take care of the following:\n{action_text}\n"
 
         if deadline:
-            reply += f"\nI will ensure this is completed before {deadline.strftime('%d %B %Y')}."
+            reply += f"\nI will ensure this is completed before {deadline.strftime('%d %B %Y at %I:%M %p')}."
 
         if tone == "friendly":
             reply += "\n\nBest,\nAI Email Intelligence Platform"

@@ -1,22 +1,155 @@
 [
   {
-    "sender": "john@microsoft.com",
-    "subject": "Payment Reminder",
-    "body": "Please process payment of Rs.45000 before 18 July. Contact Alice in Bangalore."
+    "sender": "rahul@microsoft.com",
+    "subject": "URGENT: Production Server Down",
+    "body": "Hi Team, The production server is down and customers are unable to access the application. Please investigate immediately and restore the service before Friday 5 PM. The incident review meeting will be held in Bengaluru. Regards, Rahul."
   },
   {
-    "sender": "hr@google.com",
-    "subject": "Interview Schedule",
-    "body": "Your interview is scheduled on 22 July at 10 AM. Please join Google Meet."
+    "sender": "priya@google.com",
+    "subject": "Critical Security Patch",
+    "body": "Hi Kavya, A critical security vulnerability has been identified. Please deploy the security patch immediately and send the deployment confirmation before Friday. Regards, Priya."
   },
   {
-    "sender": "manager@amazon.com",
-    "subject": "URGENT Server Issue",
-    "body": "Critical production issue. Please fix immediately."
+    "sender": "sarah@amazon.com",
+    "subject": "Sprint Planning Meeting",
+    "body": "Hi Team, The sprint planning meeting has been scheduled for Monday at 10 AM in Hyderabad. Please review the backlog before the meeting. Regards, Sarah."
   },
   {
-    "sender": "lottery@xyz.com",
-    "subject": "Congratulations",
-    "body": "You won free money. Click here immediately to claim your reward."
+    "sender": "john@accolite.com",
+    "subject": "Client Meeting Invitation",
+    "body": "Dear Team, A client meeting with IBM leadership is scheduled for tomorrow at 3 PM. Kindly review the presentation before the discussion. Thanks, John."
+  },
+  {
+    "sender": "finance@infosys.com",
+    "subject": "Invoice Payment Approval",
+    "body": "Hi Kavya, Please review and approve the invoice payment of Rs.85000 before 30 July. Kindly send the approval confirmation once completed. Regards, Finance Team."
+  },
+  {
+    "sender": "hr@accenture.com",
+    "subject": "Document Submission Reminder",
+    "body": "Hi Kavya, Please submit your employment documents before Friday. Ensure all certificates are attached before submission. Regards, HR Team."
+  },
+  {
+    "sender": "newsletter@openai.com",
+    "subject": "Monthly Product Updates",
+    "body": "Hello, This month's product updates include improvements in AI capabilities, developer tools and API performance. Thank you for staying connected with OpenAI."
+  },
+  {
+    "sender": "admin@tcs.com",
+    "subject": "Office Maintenance Notice",
+    "body": "Dear Employees, Office maintenance activities are scheduled for Saturday. Some meeting rooms may not be available during the maintenance window. Thank you for your cooperation."
+  },
+  {
+    "sender": "offers@xyzpromo.com",
+    "subject": "Congratulations! You Won Free Money",
+    "body": "Congratulations! You have won free money. Click here immediately to claim your reward. Limited offer. Unsubscribe anytime."
+  },
+  {
+    "sender": "winner@luckycash.com",
+    "subject": "Exclusive Prize Waiting",
+    "body": "You are our lucky winner. Click here to receive your free cash reward immediately. Limited offer available Firday 6 PM only."
   }
+  ,
+  {
+    "sender": "lead@amazon.com",
+    "subject": "Code Review Request",
+    "body": "Hi Kavya, Please review the latest pull request before Friday. Focus on the authentication module and provide your comments. Thanks, Rahul."
+  },
+  {
+    "sender": "devops@microsoft.com",
+    "subject": "URGENT: Production Deployment Failed",
+    "body": "Hi Team, The production deployment failed due to a database migration issue. Please investigate immediately and restore the deployment before Friday 6 PM. Regards, Priya."
+  },
+  {
+    "sender": "jira@infosys.com",
+    "subject": "New Bug Assigned",
+    "body": "Hi Kavya, A critical bug has been assigned to you. Please resolve the issue before Monday and update the Jira ticket after completing the fix."
+  },
+  {
+    "sender": "manager@google.com",
+    "subject": "API Integration Meeting",
+    "body": "Hi Team, We have scheduled an API integration meeting tomorrow at 2 PM in Bengaluru. Please review the API documentation before the meeting. Regards, John."
+  },
+  {
+    "sender": "security@ibm.com",
+    "subject": "Security Audit Report",
+    "body": "Dear Team, The quarterly security audit has been completed successfully. No critical vulnerabilities were identified. Thank you for your support."
+  },
+  {
+    "sender": "finance@deloitte.com",
+    "subject": "Cloud Infrastructure Payment",
+    "body": "Hi Kavya, Please approve the cloud infrastructure invoice of Rs.125000 before 29 July. Kindly send the approval confirmation after processing."
+  },
+  {
+    "sender": "release@adobe.com",
+    "subject": "Release Planning Meeting",
+    "body": "Hello Team, The product release planning meeting is scheduled for Thursday at 11 AM in Hyderabad. Please prepare the deployment checklist before the discussion."
+  },
+  {
+    "sender": "support@oracle.com",
+    "subject": "Database Backup Completed",
+    "body": "Hello Team, The scheduled database backup completed successfully last night. Backup verification has also been completed successfully."
+  },
+  {
+    "sender": "it@cisco.com",
+    "subject": "Authentication Service Upgrade",
+    "body": "Hi Team, The authentication service will be upgraded on Saturday. Please verify login functionality after deployment and report any issues. Regards, Infrastructure Team."
+  },
+  {
+    "sender": "hr@wipro.com",
+    "subject": "Python Training Workshop",
+    "body": "Hello Kavya, A Python backend workshop has been scheduled for Wednesday at 3 PM in Bengaluru. Please complete the prerequisite exercises before attending. Regards, HR Team."
+  }
+  ,
+  {
+    "sender": "manager@tcs.com",
+    "subject": "URGENT: Client Escalation",
+    "body": "Hi Team, We have received a client escalation regarding the payment gateway. Please investigate immediately and provide an update before Monday 4 PM. Regards, Amit."
+  },
+  {
+    "sender": "accounts@accenture.com",
+    "subject": "Vendor Payment Approval",
+    "body": "Hi Kavya, Kindly approve the vendor payment of Rs.350000 before Monday. Ensure all invoices have been verified before processing. Regards, Finance Team."
+  },
+  {
+    "sender": "ceo@openai.com",
+    "subject": "Quarterly Business Review Meeting",
+    "body": "Dear Team, The quarterly business review meeting is scheduled on 31 July at 10 AM in Bengaluru. Please review the performance reports before the meeting. Regards, Sarah."
+  },
+  {
+    "sender": "newsletter@microsoft.com",
+    "subject": "Engineering Newsletter",
+    "body": "Hello Everyone, This month's engineering newsletter covers cloud adoption, developer productivity improvements and AI innovations. Thank you for reading."
+  },
+  {
+    "sender": "it@intel.com",
+    "subject": "System Maintenance Notification",
+    "body": "Dear Employees, Scheduled server maintenance will take place this Saturday. Internal applications may be unavailable during the maintenance window."
+  },
+  {
+    "sender": "support@hcl.com",
+    "subject": "Application Performance Report",
+    "body": "Hello Team, The latest performance report shows improved response times after optimization. No action is required at this time."
+  },
+  {
+    "sender": "hr@ey.com",
+    "subject": "Annual Performance Review",
+    "body": "Hi Kavya, Your annual performance review meeting has been scheduled for Friday at 11 AM. Please complete the self-assessment before the meeting."
+  },
+  {
+    "sender": "promo@shoppingdeals.com",
+    "subject": "Limited Time Cashback Offer",
+    "body": "Congratulations! Click here immediately to receive free cashback. Limited offer available today only. Unsubscribe anytime."
+  },
+  {
+    "sender": "winner@rewardcentre.com",
+    "subject": "Claim Your Free Reward",
+    "body": "You have been selected as today's lucky winner. Click here now to claim your free money before the offer expires."
+  },
+  {
+    "sender": "offers@easyprizes.com",
+    "subject": "Exclusive Prize Waiting",
+    "body": "Congratulations! You have won an exclusive prize. Click here immediately to claim your reward. Limited offer. Unsubscribe now."
+  }
+
 ]
